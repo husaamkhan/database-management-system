@@ -100,3 +100,8 @@
 
 ## September 29
 -   Implemented query for relation definition and rename
+-   I'm finding that the AI tool I am using is not doing very good with memory-management. It sees that I am using an arena for memory 
+    allocation, so it assumes that everything should just be put in there. But this is bad for queries that are returning a result that
+    has been put together because these are just temporary and should have a temporary lifetime.
+-   In the future, i would change the arena implementation to allocate each block with a header that tracks what the prev_used was. That
+    way, it can allow more than one pop at a time. I would then add a get() function that gets the data at a specific position.

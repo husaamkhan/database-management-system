@@ -95,7 +95,8 @@ int main(int argc, char **argv)
 		file_size
 	);
 
-	Arena arena = arena_create(4096);
+	// 64 KiB virtual address space allocation
+	Arena arena = arena_create(64 * 1024);
 
 	size_t token_count = 0;
 

@@ -6,6 +6,7 @@
 #define DEFINITION_ERR(fmt, ...) LOG_ERR("[DEFINITION] " fmt, ##__VA_ARGS__)
 #define SCHEMA_ERR(fmt, ...) LOG_ERR("[SCHEMA] " fmt, ##__VA_ARGS__)
 #define TYPE_ERR(fmt, ...) LOG_ERR("[TYPE] " fmt, ##__VA_ARGS__)
+#define SYNTAX_ERR(fmt, ...) LOG_ERR("[SYNTAX] " fmt, ##__VA_ARGS__)
 
 typedef enum
 {
@@ -32,14 +33,21 @@ typedef struct
 
 typedef struct
 {
-	const char *name;
-	size_t name_length;
+    const char *name;
+    size_t name_length;
+    ValueType type;
+} Attribute;
 
-	const char **attributes;
-	size_t attribute_count;
+typedef struct
+{
+    const char *name;
+    size_t name_length;
 
-	Tuple *tuples;
-	size_t tuple_count;
+    Attribute *attributes;
+    size_t attribute_count;
+
+    Tuple *tuples;
+    size_t tuple_count;
 } Relation;
 
 typedef struct

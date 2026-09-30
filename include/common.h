@@ -10,6 +10,7 @@
 
 #define LOG(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
 #define LOG_ERR(fmt, ...) fprintf(stderr, "[ERROR] " fmt "\n", ##__VA_ARGS__)
+#define SYNTAX_ERR(fmt, ...) LOG_ERR("[SYNTAX] " fmt, ##__VA_ARGS__)
 
 #ifdef DEBUG
     #define LOG_DBG(fmt, ...) printf("[DEBUG] " fmt "\n", ##__VA_ARGS__)
@@ -289,6 +290,11 @@ static inline void *arena_push(Arena *arena, size_t size, size_t alignment)
  */
 static inline void arena_pop(Arena *arena)
 {
+	/*
+		TODO: In the future, i would change the arena implementation to allocate each block with
+		a header that tracks what the prev_used was. That way, we can allow more than one pop
+		at a time. I would then add a get() function that gets the data at a specific position
+	*/
 	// used instead of something like arena->used -= size of type as arena_push
 	// aligns upwards. just subtracting the size of the type would not get rid
 	// of any alignment padding from when the arena_push aligned upwards.
