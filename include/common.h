@@ -21,7 +21,6 @@
 #define LOG_DBG(fmt, ...) ((void)0)
 #endif
 
-#define ARRAY_LIST_INITIAL_CAPACITY 2
 
 /* ==================================================
 * UTILITY FUNCTIONS
@@ -147,6 +146,10 @@ typedef struct
 	FilePosition    pos;
 } Token;
 
+/* ==================================================
+* ARENA
+* ================================================== */
+
 typedef struct
 {
 	char *base;
@@ -154,40 +157,6 @@ typedef struct
 	size_t capacity;
 	size_t prev_used; // used for arena_pop because arena_push aligns upwards
 } Arena;
-
-typedef struct TreeNode
-{
-	struct TreeNode *parent;
-	struct TreeNode *left_child;
-	struct TreeNode *right_child;
-	
-	Token **token_arr;
-	size_t token_count;
-} TreeNode;
-
-typedef struct StatementNode
-{
-	TreeNode *root;
-	struct StatementNode *next;
-} StatementNode;
-
-typedef struct
-{
-	StatementNode *head;
-	StatementNode *tail;
-} Tree;
-
-typedef struct
-{
-	void *arr;
-	size_t size;
-	size_t capacity;
-	size_t element_size;
-} ArrayList;
-
-/* ==================================================
-* ARENA
-* ================================================== */
 
 /*
 * Creates an empty arena.
@@ -322,6 +291,28 @@ static inline void arena_pop(Arena *arena)
 * TREE
 * ================================================== */
 
+typedef struct TreeNode
+{
+	struct TreeNode *parent;
+	struct TreeNode *left_child;
+	struct TreeNode *right_child;
+	
+	Token **token_arr;
+	size_t token_count;
+} TreeNode;
+
+typedef struct StatementNode
+{
+	TreeNode *root;
+	struct StatementNode *next;
+} StatementNode;
+
+typedef struct
+{
+	StatementNode *head;
+	StatementNode *tail;
+} Tree;
+
 static inline TreeNode *tree_node_create(Arena *arena, size_t token_count, TreeNode *parent, TreeNode *left_child, TreeNode *right_child)
 {
 	TreeNode *node = arena_push(arena, sizeof(TreeNode), _Alignof(TreeNode));
@@ -346,6 +337,16 @@ static inline TreeNode *tree_node_create(Arena *arena, size_t token_count, TreeN
 /* ==================================================
 * ARRAYLIST
 * ================================================== */
+
+#define ARRAY_LIST_INITIAL_CAPACITY 2
+
+typedef struct
+{
+	void *arr;
+	size_t size;
+	size_t capacity;
+	size_t element_size;
+} ArrayList;
 
 static inline ArrayList *array_list_create(size_t element_size)
 {
