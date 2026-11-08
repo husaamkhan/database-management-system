@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -62,6 +63,7 @@ struct Expression {
     } data;
 };
 
+// TODO: switch to using common.h array list
 typedef struct
 {
     bool all_columns;
@@ -78,32 +80,32 @@ typedef enum {
     QUERY_UNION,
     QUERY_INTERSECT,
     QUERY_EXCEPT
-} QueryNodeType;
+} QueryType;
 
-typedef struct QueryNode QueryNode;
-struct QueryNode {
-    QueryNodeType type;
+typedef struct Query Query;
+struct Query {
+    QueryType type;
 
     union {
         struct {
-            QueryNode *input;
+            Query *input;
             ColumnList columns;
         } project;
 
         struct {
-            QueryNode *input;
+            Query *input;
             Expression *condition;
         } filter;
 
         struct {
-            QueryNode *left;
-            QueryNode *right;
+            Query *left;
+            Query *right;
             Expression *condition;
         } join;
 
         struct {
-            QueryNode *left;
-            QueryNode *right;
+            Query *left;
+            Query *right;
         } cross_join;
 
         struct {
@@ -111,8 +113,20 @@ struct QueryNode {
         } table;
 
         struct {
-            QueryNode *left;
-            QueryNode *right;
+            Query *left;
+            Query *right;
         } set_operation;
     };
 };
+
+typedef enum
+{
+    OP_TABLE,
+    OP_PROJECT,
+    OP_SELECT,
+    OP_JOIN,
+    OP_TIMES,
+    OP_UNION,
+    OP_INTERSECT,
+    OP_MINUS
+} Operation;

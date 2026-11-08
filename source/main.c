@@ -96,6 +96,7 @@ int main(int argc, char **argv)
 	);
 
 	// 64 KiB virtual address space allocation
+	// TODO: initial capacity should be set as a defined constant
 	Arena arena = arena_create(64 * 1024);
 
 	size_t token_count = 0;
