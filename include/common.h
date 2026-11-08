@@ -119,7 +119,7 @@ typedef enum
 	COMMENT,
 	SELECT,
 	PROJECT,
-	RENAME,
+	RENAME, // TODO: remove rename since its not a feature in sql
 	UNION,
 	INTERSECT,
 	MINUS,
@@ -171,6 +171,7 @@ typedef struct
 	StatementNode *head;
 	StatementNode *tail;
 } Tree;
+
 /* ==================================================
  * ARENA
  * ================================================== */

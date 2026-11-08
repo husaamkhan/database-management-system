@@ -102,6 +102,7 @@ void parser_init(Parser *parser, Arena *arena, size_t token_count)
 	parser->statement_has_error = false;
 }
 
+// TODO: getting rid of rename since its not included in sql
 static TreeNode *parse_rename(Parser *parser)
 {
 	Token *rename_token = advance(parser);
@@ -686,6 +687,7 @@ static TreeNode *parse_unary_expression(Parser *parser)
 			case PROJECT:
 				return parse_project(parser);
 
+			// TODO: remove rename since its not a feature sql
 			case RENAME:
 				return parse_rename(parser);
 
