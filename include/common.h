@@ -13,7 +13,6 @@
 
 #define LOG(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
 #define LOG_ERR(fmt, ...) fprintf(stderr, "[ERROR] " fmt "\n", ##__VA_ARGS__)
-#define SYNTAX_ERR(fmt, ...) LOG_ERR("[SYNTAX] " fmt, ##__VA_ARGS__)
 
 #ifdef DEBUG
 #define LOG_DBG(fmt, ...) printf("[DEBUG] " fmt "\n", ##__VA_ARGS__)
@@ -91,7 +90,7 @@ static inline char *read_file(FILE *in, size_t *size_out)
 }
 
 /* ==================================================
-* DATA TYPES
+* DATA
 * ================================================== */
 
 typedef struct

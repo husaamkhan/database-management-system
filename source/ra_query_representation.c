@@ -41,12 +41,6 @@ static Query *build_set_operation(TreeNode *node)
     return NULL;
 }
 
-Category get_base_operation(TreeNode *node)
-{
-    // TODO: Return the base operation based on the token_arr of the node
-    return NULL;
-}
-
 // Individual query construction
 static Query *build_query(TreeNode *node)
 {
@@ -54,28 +48,46 @@ static Query *build_query(TreeNode *node)
     * Identify the base operation of this query
     * and dispatch to its corresponding builder.
     */
-    
-    switch (get_base_operation(node))
+    Token *token = node->token_arr[0];
+    switch (token->category)
     {
         case PROJECT:
-        return build_project(node);
+        {
+            return build_project(node);
+        }
         
         case SELECT:
-        return build_filter(node);
+        {
+            return build_filter(node);
+        }
         
         case JOIN:
-        return build_join(node);
+        {
+            return build_join(node);
+        }
         
         case TIMES:
-        return build_cross_join(node);
+        {
+            return build_cross_join(node);
+        }
         
         case UNION:
         case INTERSECT:
         case MINUS:
-        return build_set_operation(node);
+        {
+            return build_set_operation(node);
+        }
         
         default:
-        return NULL;
+        {
+            LOG_ERR(
+                "Could not determine base operation of token at (%d:%d)",
+                token->pos.row,
+                token->pos.col
+            );
+            
+            return NULL;
+        }
     }
 }
 
