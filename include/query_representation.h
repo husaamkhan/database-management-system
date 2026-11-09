@@ -1,4 +1,5 @@
 #pragma once
+#include "common.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -63,14 +64,6 @@ struct Expression {
     } data;
 };
 
-// TODO: switch to using common.h array list
-typedef struct
-{
-    bool all_columns;
-    char **column_names;
-    size_t size;
-} ColumnList;
-
 typedef enum {
     QUERY_TABLE,
     QUERY_PROJECT,
@@ -89,7 +82,7 @@ struct Query {
     union {
         struct {
             Query *input;
-            ColumnList columns;
+            ArrayList *columns;
         } project;
 
         struct {

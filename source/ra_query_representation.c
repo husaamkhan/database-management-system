@@ -80,14 +80,8 @@ static Query *build_query(TreeNode *node)
 }
 
 // Main entry point
-void **build(
-    Tree *parse_tree,
-    Query **queries, // TODO: switch to using array list
-    size_t *query_count
-)
+void **build(Tree *parse_tree, ArrayList *queries)
 {
-    size_t count = 0;
-    
     /*
     * Iterate through each individual query tree.
     * The traversal depends on how the top-level query list
@@ -101,16 +95,15 @@ void **build(
         
         if (representation == NULL)
         {
+            // TODO: should probably have some error reported rather than a
+            // silent failure like this
             /* Handle construction failure */
             return NULL;
         }
         
-        /* Append representation to queries */
-        queries = append_query(queries, representation, &count);
+        array_list_append(queries, representation);
         
         current_statement = current_statement->next;
     }
-    
-    *query_count = count;
 }
 
