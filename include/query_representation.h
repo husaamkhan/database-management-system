@@ -82,7 +82,7 @@ struct Query {
     union {
         struct {
             Query *input;
-            ArrayList *columns;
+            ArrayList *column_list;
         } project;
 
         struct {
@@ -111,15 +111,3 @@ struct Query {
         } set_operation;
     };
 };
-
-typedef enum
-{
-    OP_TABLE,
-    OP_PROJECT,
-    OP_SELECT,
-    OP_JOIN,
-    OP_TIMES,
-    OP_UNION,
-    OP_INTERSECT,
-    OP_MINUS
-} Operation;

@@ -296,6 +296,7 @@ typedef struct TreeNode
 	struct TreeNode *left_child;
 	struct TreeNode *right_child;
 	
+	// TODO: maybe change this to array list later?
 	Token **token_arr;
 	size_t token_count;
 } TreeNode;
