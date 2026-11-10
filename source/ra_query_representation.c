@@ -9,6 +9,17 @@
 Arena *arena;
 RepresentationBuilder *builder;
 
+/* =========================================================================
+* HELPERS
+* ========================================================================== */
+// set error marker to true and log the error
+#define BUILDER_ERR(fmt, ...) \
+    do \
+    { \
+        builder->has_error = true; \
+        LOG_ERR(fmt, ##__VA_ARGS__); \
+    } while (0)
+
 
 /* =========================================================================
 * OPERATION-SPECIFIC BUILDERS
@@ -39,7 +50,10 @@ by one when the executor is done running.
 */
 static Query *build_project(TreeNode *node)
 {
-    Query *query = aren;
+    // record end of arena before representation construction
+    size_t checkpoint = arena->used;
+
+    Query *query = arena_push(arena, sizeof(Query), _Alignof(Query));
     query->type = QUERY_PROJECT;
 
     // build representation for the input relation to perform the project on
@@ -85,23 +99,30 @@ static Query *build_project(TreeNode *node)
         }
 
         default:
-            LOG_ERR(
+            BUILDER_ERR(
                 "Invalid input relation for project query at (%d:%d)",
                 token->pos.row,
                 token->pos.col
             );
 
-            free(query);
+            // free memory allocated for query
+            arena->used = checkpoint;
             return NULL;
     }
 
     // each builder function above can return null if they failed
     if (query->project.input == NULL)
     {
-        free(query);
+        // free memory allocated for query
+        arena->used = checkpoint;
         return NULL;
     }
 
+    /*
+    TODO: change columlist to be arena-backed
+    TODO: since treenode stores how many tokens it has, we can modify this to initialize an arraylist of that same size to minimize resizing, as resizing with an arena backed arraylist will waste a lot of memory
+    */
+    // column_list stores pointers to strings that are allocated in the arena
     ArrayList *column_list = array_list_create(sizeof(char*));
 
     // populate column list with each column provided in the input
@@ -113,24 +134,25 @@ static Query *build_project(TreeNode *node)
         // token in the attributes array is not an identifier
         if (token->category != IDENT)
         {
-            LOG_ERR(
+            BUILDER_ERR(
                 "Invalid column provided for project query attributes at (%d:%d). Must provide a valid identifier.",
                 token->pos.row,
                 token->pos.col
             );
 
             array_list_free(column_list);
-            free(query);
+
+            // free memory allocated for query
+            arena->used = checkpoint;
+
             return NULL;
         }
 
-        char *column_name = malloc(token->lexeme_length + 1);
-        if (column_name == NULL)
-        {
-            array_list_free(column_list);
-            free(query);
-            return NULL;
-        }
+        char *column_name = arena_push(
+            arena,
+            token->lexeme_length+1,
+            _Alignof(char)
+        );
 
         memcpy(
             column_name,
@@ -215,6 +237,8 @@ static Query *build_query(TreeNode *node)
                 token->pos.row,
                 token->pos.col
             );
+
+            builder->has_error = true;
 
             return NULL;
         }

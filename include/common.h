@@ -344,71 +344,147 @@ static inline TreeNode *tree_node_create(Arena *arena, size_t token_count, TreeN
 
 typedef struct
 {
-	void *arr;
-	size_t size;
-	size_t capacity;
-	size_t element_size;
+    void *arr;
+    size_t size;
+    size_t capacity;
+    size_t element_size;
+    size_t element_alignment;
+    Arena *arena;
 } ArrayList;
 
 static inline ArrayList *array_list_create(size_t element_size)
 {
-	if (element_size == 0) return NULL;
+    if (element_size == 0) return NULL;
 
-	ArrayList *list = malloc(sizeof(ArrayList));
+    ArrayList *list = malloc(sizeof(ArrayList));
 
-	if (list == NULL) return NULL;
+    if (list == NULL) return NULL;
 
-	void *arr = malloc(ARRAY_LIST_INITIAL_CAPACITY * element_size);
+    if (element_size > SIZE_MAX / ARRAY_LIST_INITIAL_CAPACITY)
+    {
+        free(list);
+        return NULL;
+    }
 
-	// free list allocation in case arr allocation failed
-	if (arr == NULL)
-	{
-		free(list);
-		return NULL;
-	}
+    void *arr = malloc(ARRAY_LIST_INITIAL_CAPACITY * element_size);
 
-	*list = (ArrayList) {
-		.arr = arr,
-		.size = 0,
-		.capacity = ARRAY_LIST_INITIAL_CAPACITY,
-		.element_size = element_size
-	};
+    if (arr == NULL)
+    {
+        free(list);
+        return NULL;
+    }
 
-	return list;
+    *list = (ArrayList) {
+        .arr                = arr,
+        .size               = 0,
+        .capacity           = ARRAY_LIST_INITIAL_CAPACITY,
+        .element_size       = element_size,
+        .element_alignment  = NULL,
+        .arena              = NULL
+    };
+
+    return list;
+}
+
+static inline ArrayList *array_list_arena_create
+(
+    Arena *arena,
+    size_t element_size,
+    size_t element_alignment
+)
+{
+    if (element_size == 0 || element_alignment == 0 || arena == NULL)
+    {
+        return NULL;
+    }
+
+    if (element_size > SIZE_MAX / ARRAY_LIST_INITIAL_CAPACITY)
+    {
+        return NULL;
+    }
+
+    ArrayList *list = arena_push(
+        arena,
+        sizeof(ArrayList),
+        _Alignof(ArrayList)
+    );
+
+    void *arr = arena_push(
+        arena,
+        ARRAY_LIST_INITIAL_CAPACITY * element_size,
+        element_alignment
+    );
+
+    *list = (ArrayList) {
+        .arr                = arr,
+        .size               = 0,
+        .capacity           = ARRAY_LIST_INITIAL_CAPACITY,
+        .element_size       = element_size,
+        .element_alignment  = element_alignment,
+        .arena              = arena
+    };
+
+    return list;
 }
 
 static inline bool array_list_append(ArrayList *list, const void *item)
 {
-	if (list == NULL || item == NULL) return false;
+    if (list == NULL || item == NULL) return false;
 
-	// resize array if there is no room to append an item
-	if (list->size >= list->capacity)
-	{
-		size_t new_capacity = list->capacity * 2;
+    // resize array if there is no room to append an item
+    if (list->size >= list->capacity)
+    {
+        // prevent capacity multiplication overflow
+        if (list->capacity > SIZE_MAX / 2) return false;
 
-		// prevents overflow when using realloc, as capacity * element_size
-		// can exceed the maximum representable value of size_t
-		if (new_capacity > SIZE_MAX / list->element_size) return false;
+        size_t new_capacity = list->capacity * 2;
 
-		void *new_arr = realloc(
-			list->arr,
-			new_capacity * list->element_size);
+        // prevent allocation size multiplication overflow
+        if (new_capacity > SIZE_MAX / list->element_size) return false;
 
-			if (new_arr == NULL) return false;
+        size_t new_size = new_capacity * list->element_size;
 
-			list->arr = new_arr;
-			list->capacity = new_capacity;
-	}
+        void *new_arr;
 
-	// arr is of type void*, so size is unknown. calculate destination
-	// going to address of arr and advancing size*element_size, and
-	// represent in bytes (cast to char*)
-	void *destination = (char *)list->arr + list->size * list->element_size;
-	memcpy(destination, item, list->element_size);
+        if (list->arena == NULL)
+        {
+            new_arr = realloc(list->arr, new_size);
 
-	list->size += 1;
+            if (new_arr == NULL) return false;
+        }
+        else
+        {
+            /*
+            note: this allocates a new array that is double the size of the
+            original on the arena and copies everything over. notice that it
+            does not free the original list. that's because we can't free
+            individual allocations from an arena, since arena allocation is
+            bump-based. the memory can only be reclaimed when the arena is
+            destroyed. this is a tradeoff with arena allocators
+            */
+            new_arr = arena_push(
+                list->arena,
+                new_size,
+                list->element_alignment
+            );
 
-	return true;
+            memcpy(
+                new_arr,
+                list->arr,
+                list->size * list->element_size
+            );
+        }
+
+        list->arr = new_arr;
+        list->capacity = new_capacity;
+    }
+
+    void *destination = (char *)list->arr + list->size * list->element_size;
+    memcpy(destination, item, list->element_size);
+
+    list->size++;
+
+    return true;
 }
 
 static inline void *array_list_get(ArrayList *list, size_t i)
@@ -419,8 +495,11 @@ static inline void *array_list_get(ArrayList *list, size_t i)
 
 static inline void array_list_free(ArrayList *list)
 {
-	if (list == NULL || list->arr == NULL) return;
+    // if list is arena-backed, do not free. the arena must be
+    // destroyed to reclaim the memory
+    // TODO: probably shouldn't silently return if arena is being used
+    if (list == NULL || list->arena != NULL) return;
 
-	free(list->arr);
-	free(list);
+    free(list->arr);
+    free(list);
 }
