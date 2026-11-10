@@ -9,7 +9,7 @@
 
 /* ==================================================
 * LOGGING
-* ================================================== */
+* =================================================== */
 
 #define LOG(fmt, ...)     printf(fmt "\n", ##__VA_ARGS__)
 #define LOG_ERR(fmt, ...) fprintf(stderr, "[ERROR] " fmt "\n", ##__VA_ARGS__)
@@ -45,7 +45,7 @@ static inline size_t align_up(size_t alignment, size_t value)
 	{
 		value += alignment - r;
 	}
-	
+
 	return value;
 }
 
@@ -64,28 +64,28 @@ static inline size_t align_up(size_t alignment, size_t value)
 static inline char *read_file(FILE *in, size_t *size_out)
 {
 	fseek(in, 0, SEEK_END);
-	
+
 	long size = ftell(in);
-	
+
 	if (size < 0)
 	{
 		fclose(in);
 		return NULL;
 	}
-	
+
 	*size_out = (size_t)size;
-	
+
 	fseek(in, 0, SEEK_SET);
-	
+
 	char *buffer = malloc(*size_out);
-	
+
 	if (!fread(buffer, 1, *size_out, in))
 	{
 		LOG_ERR("Couldn't read file");
 		free(buffer);
 		return NULL;
 	}
-	
+
 	return buffer;
 }
 
@@ -149,6 +149,8 @@ typedef struct
 * ARENA
 * ================================================== */
 
+#define ARENA_INITIAL_CAPACITY 64 * 1024 // 64KiB initial capacity
+
 typedef struct
 {
 	char *base;
@@ -179,13 +181,13 @@ static inline Arena arena_create(size_t initial_capacity)
 		MAP_PRIVATE | MAP_ANONYMOUS,
 		-1,
 		0);
-		
+
 		if (base == MAP_FAILED)
 		{
 			LOG_ERR("Arena reservation failed!");
 			exit(EXIT_FAILURE);
 		}
-		
+
 		return (Arena)
 		{
 			.base      = base,
@@ -194,7 +196,7 @@ static inline Arena arena_create(size_t initial_capacity)
 			.prev_used = 0
 		};
 }
-	
+
 /*
 * Releases the arena's memory back to the OS.
 *
@@ -208,19 +210,19 @@ static inline void arena_destroy(Arena *arena)
 		LOG_ERR("Attempted to destroy an uninitialized or already destroyed arena!");
 		return;
 	}
-	
+
 	// TODO: munmap is Linux/POSIX-specific and won't work on other platforms
 	if (munmap(arena->base, arena->capacity) != 0)
 	{
 		LOG_ERR("Arena release failed!");
 	}
-	
+
 	arena->base = NULL;
 	arena->used = 0;
 	arena->capacity = 0;
 	arena->prev_used = 0;
 }
-	
+
 /*
 * Allocates memory from an arena.
 *
@@ -243,22 +245,22 @@ static inline void *arena_push(Arena *arena, size_t size, size_t alignment)
 		LOG_ERR("Arena allocation alignment must be nonzero!");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	size_t aligned_used = align_up(alignment, arena->used);
-	
+
 	if (aligned_used > arena->capacity || size > arena->capacity - aligned_used)
 	{
 		LOG_ERR("Arena capacity exceeded!");
 		exit(EXIT_FAILURE);
 	}
-	
+
 	void *ptr = arena->base + aligned_used;
 	arena->prev_used = arena->used; // tracks previous used for arena_pop
 	arena->used = aligned_used + size;
 	return ptr;
 }
-	
-	
+
+
 /*
 * Reverts the last arena allocation by resetting the used pointer to its previous location.
 *
@@ -283,9 +285,9 @@ static inline void arena_pop(Arena *arena)
 	// of any alignment padding from when the arena_push aligned upwards.
 	arena->used = arena->prev_used;
 }
-	
+
 #define token_new(arena)((Token *)arena_push((arena), sizeof(Token), _Alignof(Token)))
-	
+
 /* ==================================================
 * TREE
 * ================================================== */
@@ -295,7 +297,7 @@ typedef struct TreeNode
 	struct TreeNode *parent;
 	struct TreeNode *left_child;
 	struct TreeNode *right_child;
-	
+
 	// TODO: maybe change this to array list later?
 	Token **token_arr;
 	size_t token_count;
@@ -316,13 +318,13 @@ typedef struct
 static inline TreeNode *tree_node_create(Arena *arena, size_t token_count, TreeNode *parent, TreeNode *left_child, TreeNode *right_child)
 {
 	TreeNode *node = arena_push(arena, sizeof(TreeNode), _Alignof(TreeNode));
-	
+
 	Token **token_arr = NULL;
 	if (token_count > 0)
 	{
 		token_arr = arena_push(arena, sizeof(Token *) * token_count, _Alignof(Token *));
 	}
-	
+
 	*node = (TreeNode){
 		.parent = parent,
 		.left_child = left_child,
@@ -330,7 +332,7 @@ static inline TreeNode *tree_node_create(Arena *arena, size_t token_count, TreeN
 		.token_arr = token_arr,
 		.token_count = token_count
 	};
-	
+
 	return node;
 }
 
@@ -351,64 +353,64 @@ typedef struct
 static inline ArrayList *array_list_create(size_t element_size)
 {
 	if (element_size == 0) return NULL;
-	
+
 	ArrayList *list = malloc(sizeof(ArrayList));
-	
+
 	if (list == NULL) return NULL;
-	
+
 	void *arr = malloc(ARRAY_LIST_INITIAL_CAPACITY * element_size);
-	
+
 	// free list allocation in case arr allocation failed
 	if (arr == NULL)
 	{
 		free(list);
 		return NULL;
 	}
-	
+
 	*list = (ArrayList) {
 		.arr = arr,
 		.size = 0,
 		.capacity = ARRAY_LIST_INITIAL_CAPACITY,
 		.element_size = element_size
 	};
-	
+
 	return list;
 }
-	
-static inline bool array_list_append(ArrayList *list, const void *item) 
+
+static inline bool array_list_append(ArrayList *list, const void *item)
 {
 	if (list == NULL || item == NULL) return false;
-	
+
 	// resize array if there is no room to append an item
 	if (list->size >= list->capacity)
 	{
 		size_t new_capacity = list->capacity * 2;
-		
+
 		// prevents overflow when using realloc, as capacity * element_size
 		// can exceed the maximum representable value of size_t
 		if (new_capacity > SIZE_MAX / list->element_size) return false;
-		
+
 		void *new_arr = realloc(
-			list->arr, 
+			list->arr,
 			new_capacity * list->element_size);
-			
+
 			if (new_arr == NULL) return false;
-			
+
 			list->arr = new_arr;
 			list->capacity = new_capacity;
 	}
-		
+
 	// arr is of type void*, so size is unknown. calculate destination
 	// going to address of arr and advancing size*element_size, and
 	// represent in bytes (cast to char*)
 	void *destination = (char *)list->arr + list->size * list->element_size;
 	memcpy(destination, item, list->element_size);
-	
+
 	list->size += 1;
-	
+
 	return true;
 }
-	
+
 static inline void *array_list_get(ArrayList *list, size_t i)
 {
 	if (list == NULL || i >= list->size) return NULL;
@@ -418,7 +420,7 @@ static inline void *array_list_get(ArrayList *list, size_t i)
 static inline void array_list_free(ArrayList *list)
 {
 	if (list == NULL || list->arr == NULL) return;
-	
+
 	free(list->arr);
 	free(list);
 }

@@ -111,3 +111,15 @@ struct Query {
         } set_operation;
     };
 };
+
+typedef struct
+{
+    bool has_error;
+} RepresentationBuilder;
+
+void build(
+    RepresentationBuilder *builder,
+    Arena *arena,
+    ArrayList *representation_list,
+    Tree *parse_tree
+);

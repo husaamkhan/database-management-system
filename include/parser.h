@@ -7,6 +7,12 @@
 
 typedef struct
 {
+    // TODO: maybe this should be an arraylist, since that matches the usage
+    // a bit better. you could allocate the space for the tokens with an
+    // arena, but access the tokens through the arraylist, which cleans up the
+    // way you're using the arena a lot better, since you step through it,
+    // which is not really a good way to use it.
+    // the tokens through an array
 	Arena *arena;
 	size_t token_count;
 

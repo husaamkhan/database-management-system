@@ -3,7 +3,16 @@
 #include "query_representation.h"
 
 
-/* Operation-specific builders */
+/* =========================================================================
+* GLOBALS
+* ========================================================================== */
+Arena *arena;
+RepresentationBuilder *builder;
+
+
+/* =========================================================================
+* OPERATION-SPECIFIC BUILDERS
+* ========================================================================== */
 
 static Query *build_filter(TreeNode *node);
 static Query *build_join(TreeNode *node);
@@ -30,7 +39,7 @@ by one when the executor is done running.
 */
 static Query *build_project(TreeNode *node)
 {
-    Query *query = malloc(sizeof(Query));
+    Query *query = aren;
     query->type = QUERY_PROJECT;
 
     // build representation for the input relation to perform the project on
@@ -212,9 +221,24 @@ static Query *build_query(TreeNode *node)
     }
 }
 
-// Main entry point
-void **build(Tree *parse_tree, ArrayList *queries)
+/* =========================================================================
+* MAIN ENTRY POINT
+* ========================================================================== */
+
+void build
+(
+    RepresentationBuilder *b,
+    Arena *a,
+    ArrayList *representation_list,
+    Tree *parse_tree
+)
 {
+    // initialize builder, arena, and arraylist
+    builder = b;
+    arena = a;
+
+    builder->has_error = false;
+
     /*
     * Iterate through each individual query tree.
     * The traversal depends on how the top-level query list
@@ -230,13 +254,11 @@ void **build(Tree *parse_tree, ArrayList *queries)
         {
             // TODO: should probably have some error reported rather than a
             // silent failure like this
-            /* Handle construction failure */
-            return NULL;
+            return;
         }
 
-        array_list_append(queries, representation);
+        array_list_append(representation_list, representation);
 
         current_statement = current_statement->next;
     }
 }
-

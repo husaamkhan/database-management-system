@@ -5,7 +5,7 @@
 #include "common.h"
 #include "lexer.h"
 #include "parser.h"
-#include "executor.h"
+#include "query_representation.h"
 
 int main(int argc, char **argv)
 {
@@ -34,6 +34,7 @@ int main(int argc, char **argv)
 
 	if (query_file == NULL)
 	{
+	    // TODO: why is this not a constant?
 		size_t capacity = 4096;
 
 		file_contents = malloc(capacity);
@@ -97,13 +98,13 @@ int main(int argc, char **argv)
 
 	// 64 KiB virtual address space allocation
 	// TODO: initial capacity should be set as a defined constant
-	Arena arena = arena_create(64 * 1024);
+	Arena frontend_arena = arena_create(ARENA_INITIAL_CAPACITY);
 
 	size_t token_count = 0;
 
 	lex(
 		&lexer,
-		&arena,
+		&frontend_arena,
 		&token_count
 	);
 
@@ -112,7 +113,7 @@ int main(int argc, char **argv)
 		LOG_ERR("Errors occurred during lexing");
 
 		free(file_contents);
-		arena_destroy(&arena);
+		arena_destroy(&frontend_arena);
 
 		return -1;
 	}
@@ -121,48 +122,43 @@ int main(int argc, char **argv)
 
 	parser_init(
 		&parser,
-		&arena,
+		&frontend_arena,
 		token_count
 	);
 
-	Tree tree = {
+	Tree parse_tree = {
 		.head = NULL,
 		.tail = NULL
 	};
 
 	parse(
 		&parser,
-		&tree
+		&parse_tree
 	);
 
 	if (parser.has_error)
 	{
 		free(file_contents);
-		arena_destroy(&arena);
+		arena_destroy(&frontend_arena);
 
 		return -1;
 	}
 
 	if (print_parse_tree)
 	{
-		print_tree(&tree);
+		print_tree(&parse_tree);
 	}
 
-	Executor executor;
+	RepresentationBuilder *builder = malloc(sizeof(RepresentationBuilder));
+    Arena representation_arena = arena_create(ARENA_INITIAL_CAPACITY);
+    ArrayList *representation_list = array_list_create(sizeof(Query));
 
-	executor_init(
-		&executor,
-		&arena
-	);
+    build(builder, &representation_arena, representation_list, &parse_tree);
 
-	execute(
-		&executor,
-		&tree
-	);
-
+    // file, tokens, and parse tree are removeable at this stage because any
+    // data that was required has been memcpy'd into the query representations
 	free(file_contents);
-	arena_destroy(&arena);
+	arena_destroy(&frontend_arena);
 
 	return 0;
 }
-
