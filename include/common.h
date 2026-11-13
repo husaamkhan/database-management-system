@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -352,21 +353,35 @@ typedef struct
     Arena *arena;
 } ArrayList;
 
-static inline ArrayList *array_list_create(size_t element_size)
+static inline ArrayList *array_list_create
+(
+    size_t element_size,
+    size_t initial_capacity
+)
 {
-    if (element_size == 0) return NULL;
-
-    ArrayList *list = malloc(sizeof(ArrayList));
-
-    if (list == NULL) return NULL;
-
-    if (element_size > SIZE_MAX / ARRAY_LIST_INITIAL_CAPACITY)
+    if (element_size == 0)
     {
-        free(list);
         return NULL;
     }
 
-    void *arr = malloc(ARRAY_LIST_INITIAL_CAPACITY * element_size);
+    if (initial_capacity == 0)
+    {
+        initial_capacity = ARRAY_LIST_INITIAL_CAPACITY;
+    }
+
+    if (element_size > SIZE_MAX / initial_capacity)
+    {
+        return NULL;
+    }
+
+    ArrayList *list = malloc(sizeof(ArrayList));
+
+    if (list == NULL)
+    {
+        return NULL;
+    }
+
+    void *arr = malloc(initial_capacity * element_size);
 
     if (arr == NULL)
     {
@@ -377,9 +392,9 @@ static inline ArrayList *array_list_create(size_t element_size)
     *list = (ArrayList) {
         .arr                = arr,
         .size               = 0,
-        .capacity           = ARRAY_LIST_INITIAL_CAPACITY,
+        .capacity           = initial_capacity,
         .element_size       = element_size,
-        .element_alignment  = NULL,
+        .element_alignment  = 0,
         .arena              = NULL
     };
 
@@ -390,7 +405,8 @@ static inline ArrayList *array_list_arena_create
 (
     Arena *arena,
     size_t element_size,
-    size_t element_alignment
+    size_t element_alignment,
+    size_t initial_capacity
 )
 {
     if (element_size == 0 || element_alignment == 0 || arena == NULL)
@@ -398,7 +414,12 @@ static inline ArrayList *array_list_arena_create
         return NULL;
     }
 
-    if (element_size > SIZE_MAX / ARRAY_LIST_INITIAL_CAPACITY)
+    if (initial_capacity == 0)
+    {
+        initial_capacity = ARRAY_LIST_INITIAL_CAPACITY;
+    }
+
+    if (element_size > SIZE_MAX / initial_capacity)
     {
         return NULL;
     }
@@ -409,16 +430,26 @@ static inline ArrayList *array_list_arena_create
         _Alignof(ArrayList)
     );
 
+    if (list == NULL)
+    {
+        return NULL;
+    }
+
     void *arr = arena_push(
         arena,
-        ARRAY_LIST_INITIAL_CAPACITY * element_size,
+        initial_capacity * element_size,
         element_alignment
     );
+
+    if (arr == NULL)
+    {
+        return NULL;
+    }
 
     *list = (ArrayList) {
         .arr                = arr,
         .size               = 0,
-        .capacity           = ARRAY_LIST_INITIAL_CAPACITY,
+        .capacity           = initial_capacity,
         .element_size       = element_size,
         .element_alignment  = element_alignment,
         .arena              = arena

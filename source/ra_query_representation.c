@@ -111,7 +111,8 @@ static Query *build_project(TreeNode *node)
     // column_list stores pointers to strings that are allocated in the arena
     ArrayList *column_list = array_list_arena_create(
         arena, sizeof(char*),
-        _Alignof(char*)
+        _Alignof(char*),
+        node->token_count
     );
 
     // populate column list with each column provided in the input
