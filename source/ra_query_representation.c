@@ -1,6 +1,7 @@
 
 #include "common.h"
 #include "query_representation.h"
+#include <string.h>
 
 
 /* =========================================================================
@@ -13,7 +14,7 @@ RepresentationBuilder *builder;
 * HELPERS
 * ========================================================================== */
 // set error marker to true and log the error
-#define BUILDER_ERR(fmt, ...) \
+#define REP_ERR(fmt, ...) \
     do \
     { \
         builder->has_error = true; \
@@ -99,7 +100,7 @@ static Query *build_project(TreeNode *node)
         }
 
         default:
-            BUILDER_ERR(
+            REP_ERR(
                 "Invalid input relation for project query at (%d:%d)",
                 token->pos.row,
                 token->pos.col
@@ -118,12 +119,11 @@ static Query *build_project(TreeNode *node)
         return NULL;
     }
 
-    /*
-    TODO: change columlist to be arena-backed
-    TODO: since treenode stores how many tokens it has, we can modify this to initialize an arraylist of that same size to minimize resizing, as resizing with an arena backed arraylist will waste a lot of memory
-    */
     // column_list stores pointers to strings that are allocated in the arena
-    ArrayList *column_list = array_list_create(sizeof(char*));
+    ArrayList *column_list = array_list_arena_create(
+        arena, sizeof(char*),
+        _Alignof(char*)
+    );
 
     // populate column list with each column provided in the input
     for (int i = 0; i < node->left_child->token_count; i++)
@@ -134,7 +134,7 @@ static Query *build_project(TreeNode *node)
         // token in the attributes array is not an identifier
         if (token->category != IDENT)
         {
-            BUILDER_ERR(
+            REP_ERR(
                 "Invalid column provided for project query attributes at (%d:%d). Must provide a valid identifier.",
                 token->pos.row,
                 token->pos.col
@@ -142,12 +142,15 @@ static Query *build_project(TreeNode *node)
 
             array_list_free(column_list);
 
+            // TODO: should probably have arena handle this on its own
             // free memory allocated for query
             arena->used = checkpoint;
 
             return NULL;
         }
 
+        // allocate the column_name string in the arena, and then store a
+        // pointer to it in the arraylist
         char *column_name = arena_push(
             arena,
             token->lexeme_length+1,
@@ -162,7 +165,12 @@ static Query *build_project(TreeNode *node)
 
         column_name[token->lexeme_length] = '\0';
 
-        array_list_append(column_list, column_name);
+        if (!array_list_append(column_list, &column_name))
+        {
+            REP_ERR("Failed to append string '%s' to arraylist!", column_name);
+            arena->used = checkpoint;
+            return NULL;
+        }
     }
 
     query->project.column_list = column_list;
