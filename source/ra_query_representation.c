@@ -37,18 +37,7 @@ static Query *build_table(TreeNode *node)
     return NULL;
 }
 
-/*
-TODO: instead of malloc, its better to use arena here. freeing queryies is
-becoming too complicated. to free a query, you'd need a helper that determines
-the type of the query to understand its structure, then based off of that it
-would need to recursively go through each sub-query of the representation and
-free all of those. you'd need a separate helper to destroy expressions which hs
-similar issues. you'd also need to have separate logic to free data inside
-arraylists. much easier to just pop off of the arena. it will also be much
-easier to just destroy an entire arena all together than to go through each
-query and expression one by one, freeing every single little piece of data one
-by one when the executor is done running.
-*/
+// TODO: test before moving on
 static Query *build_project(TreeNode *node)
 {
     // record end of arena before representation construction
