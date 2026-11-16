@@ -154,7 +154,7 @@ int main(int argc, char **argv)
 	// builder will allocate query representations in arena and store pointers
 	// to each representation in the arraylist
     Arena representation_arena = arena_create(ARENA_INITIAL_CAPACITY);
-    ArrayList *representation_list = array_list_create(sizeof(Query*));
+    ArrayList *representation_list = array_list_create(sizeof(Query*), 0);
 
     build(builder, &representation_arena, representation_list, &parse_tree);
 
