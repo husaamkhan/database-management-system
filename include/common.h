@@ -350,9 +350,24 @@ typedef struct
     size_t capacity;
     size_t element_size;
     size_t element_alignment;
-    Arena *arena;
+    Arena *arena; // if set, memory is allocated in arena rather than heap
 } ArrayList;
 
+/*
+ * Creates a heap-allocated array list.
+ *
+ * Input:
+ *   element_size       -   Size of each element
+ *   initial_capacity   -   Initial capacity of the array list. If 0, the
+ *                          default initial capacity is used.
+ *
+ * Output:
+ *      None.
+ *
+ * Returns:
+ *      A pointer to the initialized array list, or NULL if allocation fails
+ *      or the arguments are invalid.
+ */
 static inline ArrayList *array_list_create
 (
     size_t element_size,
@@ -401,6 +416,24 @@ static inline ArrayList *array_list_create
     return list;
 }
 
+/*
+ * Creates an arena-allocated array list.
+ *
+ * Input:
+ *   arena              -   Arena to allocate the array list from
+ *   element_size       -   Size of each element
+ *   element_alignment  -   Alignment of each element to be used for arena
+ *                          allocation
+ *   initial_capacity   -   Initial capacity of the array list. If 0, the
+ *                          default initial capacity is used
+ *
+ * Output:
+ *      None
+ *
+ * Returns:
+ *      A pointer to the initialized array list, or NULL if the arguments are
+ *      invalid.
+ */
 static inline ArrayList *array_list_arena_create
 (
     Arena *arena,
@@ -430,21 +463,11 @@ static inline ArrayList *array_list_arena_create
         _Alignof(ArrayList)
     );
 
-    if (list == NULL)
-    {
-        return NULL;
-    }
-
     void *arr = arena_push(
         arena,
         initial_capacity * element_size,
         element_alignment
     );
-
-    if (arr == NULL)
-    {
-        return NULL;
-    }
 
     *list = (ArrayList) {
         .arr                = arr,
@@ -458,6 +481,26 @@ static inline ArrayList *array_list_arena_create
     return list;
 }
 
+/*
+ * Appends an element to the end of the array list.
+ *
+ * If the array list has insufficient capacity, its capacity is doubled.
+ * Heap-allocated lists use realloc to resize their backing array, while
+ * arena-allocated lists allocate a new backing array and copy the existing
+ * elements into it.
+ *
+ * Input:
+ *   list   -   Array list to append to.
+ *   item   -   Pointer to the element to append. Its contents are copied into
+ *              the backing array.
+ *
+ * Output:
+ *      The array list is updated with the appended element. Its backing array
+ *      may be reallocated if additional capacity is required.
+ *
+ * Returns:
+ *      true if the element was successfully appended, false otherwise.
+ */
 static inline bool array_list_append(ArrayList *list, const void *item)
 {
     if (list == NULL || item == NULL) return false;
@@ -518,12 +561,43 @@ static inline bool array_list_append(ArrayList *list, const void *item)
     return true;
 }
 
+/*
+ * Retrieves an element from the array list at the specified index.
+ *
+ * Input:
+ *   list   -   Array list to retrieve an element from.
+ *   i      -   Zero-based index of the element.
+ *
+ * Output:
+ *      None.
+ *
+ * Returns:
+ *      A pointer to the requested element, or NULL if the list is NULL or
+ *      the index is out of bounds.
+ */
 static inline void *array_list_get(ArrayList *list, size_t i)
 {
-	if (list == NULL || i >= list->size) return NULL;
-	return (char *)list->arr + i * list->element_size;
+    if (list == NULL || i >= list->size) return NULL;
+    return (char *)list->arr + i * list->element_size;
 }
 
+/*
+ * Frees a heap-allocated array list. Doesn't do anything if array list is
+ * allocated in an arena.
+ *
+ * Input:
+ *   list   -   Array list to free.
+ *
+ * Output:
+ *      The list and its backing array are deallocated.
+ *
+ * Returns:
+ *      None.
+ *
+ * Note:
+ *      Arena-allocated lists are not freed individually. Their memory is
+ *      reclaimed when the associated arena is destroyed.
+ */
 static inline void array_list_free(ArrayList *list)
 {
     // if list is arena-backed, do not free. the arena must be
