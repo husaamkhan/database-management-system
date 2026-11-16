@@ -21,9 +21,101 @@ RepresentationBuilder *builder;
         LOG_ERR(fmt, ##__VA_ARGS__); \
     } while (0)
 
+/* =========================================================================
+* RELATION DEFINITION BUILDER
+* ========================================================================== */
+
+/*
+ * Relation definition parse-tree structure:
+ *
+ *                  =
+ *                /   \
+ *               /     \
+ * RELATION_DEFINITION  Tuple list
+ *        /   \             |
+ *       /     \            └── Tuple nodes
+ * Relation  Attributes         (linked through left_child)
+ *  name    (token_arr)
+ *
+ * Access paths:
+ *   node->left_child->left_child  : Relation name
+ *   node->left_child->right_child : Attribute list
+ *   node->right_child             : Tuple list
+ *
+ * The tuple list is NULL if the relation definition contains no tuples.
+ */
+
+static char *build_relation_name(TreeNode *node)
+{
+    const char *stored_name = node->
+        left_child->
+        left_child->
+        token_arr[0]->
+        lexeme_start;
+    size_t length = node->left_child->left_child->token_arr[0]->lexeme_length;
+
+    char *relation_name = arena_push(
+        arena,
+        length + 1,
+        _Alignof(char)
+    );
+
+    memcpy(relation_name, stored_name, length);
+    relation_name[length] = '\0';
+
+    return relation_name;
+}
+
+static ArrayList *build_column_list(TreeNode *node)
+{
+    // each token is storing a column name
+    size_t num_columns = node->left_child->right_child->token_count;
+
+    ArrayList *column_list = array_list_arena_create(
+        arena,
+        sizeof(char*),
+        _Alignof(char*),
+        num_columns
+    );
+
+    // loop through all tokens in the node storing the columns
+    for (size_t i = 0; i < num_columns; i++)
+    {
+        Token *token = node->left_child->right_child->token_arr[i];
+        const char *stored_column_name = token->lexeme_start;
+
+        // allocate new string in the representation builder's arena and copy
+        // over the column name
+        char *column_name = arena_push(
+            arena,
+            token->lexeme_length + 1,
+            _Alignof(char)
+        );
+
+        memcpy(column_name, stored_column_name, token->lexeme_length);
+        column_name[token->lexeme_length] = '\0';
+
+        // append newly allocated column name to columns array list
+        array_list_append(column_list, column_name);
+    }
+
+    return column_list;
+}
+
+static RelationDefinition *build_relation_definition(TreeNode *node)
+{
+    size_t checkpoint = arena->used; // restore point if construction fails
+
+    // get the relation name and columns from the left child
+    char *relation_name = build_relation_name(node);
+    ArrayList *column_list = build_column_list(node);
+
+    // TODO: get tuples from right child
+    // TODO: return the relation definition representation
+}
 
 /* =========================================================================
-* OPERATION-SPECIFIC BUILDERS
+* QUERY BUILDERS
 * ========================================================================== */
 
 static Query *build_filter(TreeNode *node);
@@ -37,7 +129,7 @@ static Query *build_table(TreeNode *node)
     return NULL;
 }
 
-// TODO: test before moving on
+// TODO: test after implementing the input functions
 static Query *build_project(TreeNode *node)
 {
     // record end of arena before representation construction
@@ -270,6 +362,9 @@ void build
     StatementNode *current_statement = parse_tree->head;
     while (current_statement != NULL)
     {
+        // TODO: should be a call to a build_statement function that calls
+        // build_query or build_relation_definition depending on the root node
+        //  of the statement
         Query *representation = build_query(current_statement->root);
 
         if (representation == NULL)

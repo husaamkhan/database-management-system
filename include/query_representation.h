@@ -23,7 +23,8 @@ typedef struct
     } data;
 } Value;
 
-typedef enum {
+typedef enum
+{
     EXPR_COLUMN,
     EXPR_LITERAL,
     EXPR_COMPARISON,
@@ -32,7 +33,8 @@ typedef enum {
     EXPR_NOT
 } ExpressionType;
 
-typedef enum {
+typedef enum
+{
     COMP_EQUAL,
     COMP_NOT_EQUAL,
     COMP_LESS,
@@ -42,20 +44,24 @@ typedef enum {
 } ComparisonOperator;
 
 typedef struct Expression Expression;
-struct Expression {
+struct Expression
+{
     ExpressionType type;
 
-    union {
+    union
+    {
         char *column_name;
         Value literal;
 
-        struct {
+        struct
+        {
             Expression *left;
             Expression *right;
             ComparisonOperator operator;
         } comparison;
 
-        struct {
+        struct
+        {
             Expression *left;
             Expression *right;
         } binary;
@@ -64,7 +70,8 @@ struct Expression {
     } data;
 };
 
-typedef enum {
+typedef enum
+{
     QUERY_TABLE,
     QUERY_PROJECT,
     QUERY_FILTER,
@@ -76,36 +83,44 @@ typedef enum {
 } QueryType;
 
 typedef struct Query Query;
-struct Query {
+struct Query
+{
     QueryType type;
 
-    union {
-        struct {
+    union
+    {
+        struct
+        {
             Query *input;
             ArrayList *column_list;
         } project;
 
-        struct {
+        struct
+        {
             Query *input;
             Expression *condition;
         } filter;
 
-        struct {
+        struct
+        {
             Query *left;
             Query *right;
             Expression *condition;
         } join;
 
-        struct {
+        struct
+        {
             Query *left;
             Query *right;
         } cross_join;
 
-        struct {
+        struct
+        {
             char *name;
         } table;
 
-        struct {
+        struct
+        {
             Query *left;
             Query *right;
         } set_operation;
@@ -114,10 +129,34 @@ struct Query {
 
 typedef struct
 {
+    char *relation_name;
+    ArrayList *column_list;
+    ArrayList *tuples;
+} RelationDefinition;
+
+typedef enum
+{
+    STATEMENT_QUERY,
+    STATEMENT_RELATION_DEFINITION
+} StatementType;
+
+typedef struct
+{
+    StatementType type;
+    union
+    {
+        Query query;
+        RelationDefinition relation_definiton;
+    };
+} Statement;
+
+typedef struct
+{
     bool has_error;
 } RepresentationBuilder;
 
-void build(
+void build
+(
     RepresentationBuilder *builder,
     Arena *arena,
     ArrayList *representation_list,
