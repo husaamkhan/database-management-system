@@ -239,6 +239,7 @@ static inline void arena_destroy(Arena *arena)
 * Returns:
 *   A pointer to the allocated memory.
 */
+// TODO: probably shouldn't exit on failure
 static inline void *arena_push(Arena *arena, size_t size, size_t alignment)
 {
 	if (alignment == 0)
@@ -376,6 +377,7 @@ static inline ArrayList *array_list_create
 {
     if (element_size == 0)
     {
+        LOG_ERR("Invalid element size provided for array list initialization");
         return NULL;
     }
 
@@ -386,6 +388,7 @@ static inline ArrayList *array_list_create
 
     if (element_size > SIZE_MAX / initial_capacity)
     {
+        LOG_ERR("Invalid element size provided for array list initialization");
         return NULL;
     }
 
@@ -393,6 +396,7 @@ static inline ArrayList *array_list_create
 
     if (list == NULL)
     {
+        LOG_ERR("Failed to allocate memory on heap for array list");
         return NULL;
     }
 
@@ -400,7 +404,9 @@ static inline ArrayList *array_list_create
 
     if (arr == NULL)
     {
-        free(list);
+        LOG_ERR(
+            "Failed to allocate memory on heap for array list backing array"
+        );
         return NULL;
     }
 
@@ -444,6 +450,7 @@ static inline ArrayList *array_list_arena_create
 {
     if (element_size == 0 || element_alignment == 0 || arena == NULL)
     {
+        LOG_ERR("Failed to create array list. Element size cannot be 0.");
         return NULL;
     }
 
@@ -454,6 +461,10 @@ static inline ArrayList *array_list_arena_create
 
     if (element_size > SIZE_MAX / initial_capacity)
     {
+        LOG_ERR(
+            "Failed to create array list. Provided element size would "
+            "overflow size_t."
+        );
         return NULL;
     }
 
@@ -503,18 +514,33 @@ static inline ArrayList *array_list_arena_create
  */
 static inline bool array_list_append(ArrayList *list, const void *item)
 {
-    if (list == NULL || item == NULL) return false;
+    if (list == NULL || item == NULL)
+    {
+        LOG_ERR("Array list append failed: list or item pointer is NULL");
+        return false;
+    }
 
     // resize array if there is no room to append an item
     if (list->size >= list->capacity)
     {
         // prevent capacity multiplication overflow
-        if (list->capacity > SIZE_MAX / 2) return false;
+        if (list->capacity > SIZE_MAX / 2)
+        {
+            LOG_ERR("Array list append failed: capacity overflow");
+            return false;
+        }
 
         size_t new_capacity = list->capacity * 2;
 
         // prevent allocation size multiplication overflow
-        if (new_capacity > SIZE_MAX / list->element_size) return false;
+        if (new_capacity > SIZE_MAX / list->element_size)
+        {
+            LOG_ERR(
+                "Array list append failed: backing array allocation size "
+                "would overflow"
+            );
+            return false;
+        }
 
         size_t new_size = new_capacity * list->element_size;
 
@@ -524,7 +550,14 @@ static inline bool array_list_append(ArrayList *list, const void *item)
         {
             new_arr = realloc(list->arr, new_size);
 
-            if (new_arr == NULL) return false;
+            if (new_arr == NULL)
+            {
+                LOG_ERR(
+                    "Array list append failed: heap reallocation of backing "
+                   "array failed"
+                );
+                return false;
+            }
         }
         else
         {
@@ -600,10 +633,23 @@ static inline void *array_list_get(ArrayList *list, size_t i)
  */
 static inline void array_list_free(ArrayList *list)
 {
+    if (list == NULL)
+    {
+        LOG("Array list free skipped: list pointer is NULL");
+        return;
+    }
+
     // if list is arena-backed, do not free. the arena must be
     // destroyed to reclaim the memory
     // TODO: probably shouldn't silently return if arena is being used
-    if (list == NULL || list->arena != NULL) return;
+    if (list->arena != NULL)
+    {
+        LOG(
+            "Array list free skipped: arena-backed list memory must be "
+            "reclaimed by destroying the arena"
+        );
+        return;
+    }
 
     free(list->arr);
     free(list);

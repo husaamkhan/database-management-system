@@ -21,6 +21,14 @@ RepresentationBuilder *builder;
         LOG_ERR(fmt, ##__VA_ARGS__); \
     } while (0)
 
+static bool is_valid_identifier_token(Token *token)
+{
+    return token != NULL
+        && token->category == IDENT
+        && token->lexeme_start != NULL
+        && token->lexeme_length > 0;
+}
+
 /* =========================================================================
 * RELATION DEFINITION BUILDER
 * ========================================================================== */
@@ -47,12 +55,22 @@ RepresentationBuilder *builder;
 
 static char *build_relation_name(TreeNode *node)
 {
-    const char *stored_name = node->
-        left_child->
-        left_child->
-        token_arr[0]->
-        lexeme_start;
-    size_t length = node->left_child->left_child->token_arr[0]->lexeme_length;
+    TreeNode *n = node->left_child->left_child;
+    Token *token = n->token_arr[0];
+
+    if (!is_valid_identifier_token(token))
+    {
+        REP_ERR(
+            "Couldn't extract relation name from parse tree due to "
+            "malformed token"
+        );
+
+        builder->has_error = true;
+        return NULL;
+    }
+
+    const char *stored_name = token->lexeme_start;
+    size_t length = token->lexeme_length;
 
     char *relation_name = arena_push(
         arena,
@@ -68,8 +86,10 @@ static char *build_relation_name(TreeNode *node)
 
 static ArrayList *build_column_list(TreeNode *node)
 {
+    TreeNode *n = node->left_child->right_child;
+
     // each token is storing a column name
-    size_t num_columns = node->left_child->right_child->token_count;
+    size_t num_columns = n->token_count;
 
     ArrayList *column_list = array_list_arena_create(
         arena,
@@ -78,10 +98,31 @@ static ArrayList *build_column_list(TreeNode *node)
         num_columns
     );
 
+    if (column_list == NULL)
+    {
+        REP_ERR(
+            "Relation definition construction failed: could not "
+            "create column list"
+        );
+        return NULL;
+    }
+
     // loop through all tokens in the node storing the columns
     for (size_t i = 0; i < num_columns; i++)
     {
-        Token *token = node->left_child->right_child->token_arr[i];
+        Token *token = n->token_arr[i];
+
+        if (!is_valid_identifier_token(token))
+        {
+            REP_ERR(
+                "Couldn't extract column name from parse tree due to "
+                "malformed token"
+            );
+
+            builder->has_error = true;
+            return NULL;
+        }
+
         const char *stored_column_name = token->lexeme_start;
 
         // allocate new string in the representation builder's arena and copy
@@ -96,7 +137,12 @@ static ArrayList *build_column_list(TreeNode *node)
         column_name[token->lexeme_length] = '\0';
 
         // append newly allocated column name to columns array list
-        array_list_append(column_list, column_name);
+        if (!array_list_append(column_list, column_name))
+        {
+            REP_ERR("Failed to append column name to column list");
+            builder->has_error = true;
+            return NULL;
+        }
     }
 
     return column_list;
@@ -104,7 +150,24 @@ static ArrayList *build_column_list(TreeNode *node)
 
 static RelationDefinition *build_relation_definition(TreeNode *node)
 {
-    size_t checkpoint = arena->used; // restore point if construction fails
+    if (
+        node == NULL ||
+        node->left_child == NULL ||
+        node->left_child->left_child == NULL ||
+        node->left_child->right_child == NULL
+    )
+    {
+        REP_ERR(
+            "Couldn't build relation definition representation due to "
+            "missing relation definition node"
+        );
+
+        builder->has_error = true;
+        return NULL;
+    }
+
+    // restore point if construction fails
+    size_t checkpoint = arena->used;
 
     // get the relation name and columns from the left child
     char *relation_name = build_relation_name(node);
